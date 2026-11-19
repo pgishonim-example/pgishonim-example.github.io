@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.pgishonim.exitpass",
+      "sha256_cert_fingerprints": [
+        "06:04:6D:30:B7:4A:DC:6B:40:D9:C4:EB:1C:52:F5:A3:68:CF:E8:8F:16:F3:45:B4:84:D3:44:A4:99:26:BF:0B"
+      ]
+    }
+  }
+]
