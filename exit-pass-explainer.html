@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<!--
+  exit-pass-explainer.html — Pgishonim
+  ------------------------------------------------------------------
+  מסך ביניים שמוצג אחרי לחיצת "צור אישור" ולפני הצגת האישור עצמו.
+  שלושה שלבים: (1) הסבר מלא איך המערכת עובדת — חובה לגלול עד הסוף,
+  (2) לחיצת "הבא", (3) התחייבות לשימוש תקין לפני המשך להצגת האישור.
+
+  אינטגרציה:
+    * כתובת ההמשך (הצגת האישור) נקראת מפרמטר ?next=...  למשל:
+        exit-pass-explainer.html?next=/certifications/approval.php?c_id=69779
+      אם אין פרמטר — מוצג מסך הדגמה במקום מעבר אמיתי.
+    * הנתיבים ללוגו ול-CSS: הקובץ עצמאי (CSS מוטמע). אם משלבים
+      במערכת האמיתית אפשר להחליף ל-certifications.css המקורי.
+
+  הערה: טקסט "מאחורי הקלעים" נכתב לפי ההתנהגות הגלויה של המערכת
+  (יצירת רשומה, מזהה ייחודי, אימות זהות, נעילה, תיעוד). יש לוודא
+  שהפרטים תואמים לצד-השרת בפועל ולעדכן אם צריך.
+-->
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>מערכת פגישונים — לפני הצגת האישור</title>
+    <style>
+        :root {
+            --ext-ink: #16224e;
+            --ext-label: #2b3a67;
+            --ext-muted: #5d6890;
+            --ext-line: #dfe6f3;
+            --ext-field: #f6f8fd;
+            --ext-surface: #fff;
+            --ext-accent: #2643a8;
+            --ext-wash: #eaf0ff;
+            --ext-ring: rgba(38, 67, 168, .18);
+            --accent: #18a76c;
+            --accent-dark: #0f7a55;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            color: var(--ext-ink);
+            font-family: "Assistant", "Heebo", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+            background:
+                radial-gradient(closest-side, rgba(255, 255, 255, .13), transparent) top center / min(720px, 100%) 300px no-repeat,
+                radial-gradient(ellipse 125% 100% at 50% 0%, #2a48b0 0%, #152b78 52%, #0f205e 99.4%, transparent 100%) top center / 100% clamp(300px, 46vh, 430px) no-repeat,
+                #eef2fa;
+        }
+
+        .exit-pass-page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: clamp(28px, 7vh, 80px) 16px 40px;
+        }
+
+        .exit-pass-card {
+            position: relative;
+            width: 100%;
+            max-width: 520px;
+            display: flex;
+            flex-direction: column;
+            animation: cardAppear .6s ease backwards;
+        }
+
+        @keyframes cardAppear {
+            from { opacity: 0; transform: translateY(24px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .exit-pass-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 0 0 24px;
+            text-align: center;
+        }
+
+        .exit-pass-brand img {
+            display: block;
+            width: 168px;
+            max-width: 168px;
+        }
+
+        .exit-pass-title {
+            font-size: 1.375rem;
+            line-height: 1.35;
+            margin: 0;
+            letter-spacing: .01em;
+            color: rgba(255, 255, 255, .9);
+        }
+
+        .exit-pass-subtitle {
+            margin: 0;
+            padding: 5px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .1);
+            border: 1px solid rgba(255, 255, 255, .16);
+            font-size: .875rem;
+            color: rgba(255, 255, 255, .8);
+        }
+
+        .exit-pass-body {
+            border-radius: 28px;
+            background: var(--ext-surface);
+            box-shadow: 0 1px 2px rgba(15, 32, 94, .06), 0 28px 56px -28px rgba(15, 32, 94, .5);
+            padding: 28px 26px 24px;
+            color: var(--ext-ink);
+        }
+
+        .step-head {
+            text-align: center;
+            margin-bottom: 14px;
+        }
+
+        .step-head h2 {
+            font-size: 1.2rem;
+            margin: 0 0 6px;
+            color: var(--ext-ink);
+        }
+
+        .step-head p {
+            margin: 0;
+            color: var(--ext-muted);
+            font-size: .92rem;
+        }
+
+        /* ---- מד התקדמות קריאה ---- */
+        .read-progress {
+            height: 4px;
+            border-radius: 999px;
+            background: var(--ext-line);
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+        .read-progress > span {
+            display: block;
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, var(--ext-accent), var(--accent));
+            transition: width .15s ease;
+        }
+
+        /* ---- תיבת הגלילה של ההסבר ---- */
+        .explain-scroll {
+            position: relative;
+            max-height: 46vh;
+            min-height: 220px;
+            overflow-y: auto;
+            padding: 4px 14px 4px 6px;
+            border: 1.5px solid var(--ext-line);
+            border-radius: 16px;
+            background: var(--ext-field);
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .explain-scroll::-webkit-scrollbar { width: 9px; }
+        .explain-scroll::-webkit-scrollbar-thumb {
+            background: #c4cfe6; border-radius: 999px;
+        }
+
+        .explain-scroll h3 {
+            font-size: 1rem;
+            margin: 16px 0 6px;
+            color: var(--ext-accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .explain-scroll h3:first-child { margin-top: 6px; }
+
+        .explain-scroll .num {
+            flex: 0 0 auto;
+            width: 26px; height: 26px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: var(--ext-wash);
+            color: var(--ext-accent);
+            font-size: .85rem; font-weight: 800;
+        }
+
+        .explain-scroll p {
+            margin: 0 0 10px;
+            font-size: .92rem;
+            line-height: 1.6;
+            color: var(--ext-ink);
+        }
+
+        .explain-scroll .note {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: #fff6e6;
+            border: 1px solid #f3d9a2;
+            color: #6b4e13;
+            font-size: .9rem;
+            line-height: 1.55;
+        }
+
+        .scroll-sentinel { height: 1px; }
+
+        /* רמז "המשיכו לגלול" צף בתחתית תיבת הגלילה */
+        .scroll-hint {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: rgba(38, 67, 168, .92);
+            color: #fff;
+            font-size: .8rem;
+            font-weight: 600;
+            box-shadow: 0 6px 16px rgba(15, 32, 94, .3);
+            pointer-events: none;
+            transition: opacity .2s ease;
+            white-space: nowrap;
+        }
+        .scroll-hint.hidden { opacity: 0; }
+        .scroll-hint .chev {
+            display: inline-block;
+            animation: bob 1.1s ease-in-out infinite;
+        }
+        @keyframes bob {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(3px); }
+        }
+
+        /* ---- התחייבות ---- */
+        .pledge {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 16px;
+            border: 1.5px solid var(--ext-line);
+            border-radius: 16px;
+            background: var(--ext-field);
+            cursor: pointer;
+            transition: border-color .2s ease, background .2s ease;
+        }
+        .pledge.checked {
+            border-color: var(--accent);
+            background: #f0fbf6;
+        }
+        .pledge input {
+            flex: 0 0 auto;
+            width: 22px; height: 22px;
+            margin-top: 2px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .pledge .pledge-text {
+            font-size: .95rem;
+            line-height: 1.55;
+            color: var(--ext-ink);
+        }
+        .pledge .pledge-text strong { color: var(--accent-dark); }
+
+        /* ---- כפתורים ---- */
+        .actions {
+            margin-top: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            min-height: 54px;
+            border: 0;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform .05s ease, box-shadow .2s ease, background .2s ease, opacity .2s ease;
+            font-family: inherit;
+        }
+        .btn:active { transform: translateY(1px); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2a48b0 0%, #152b78 100%);
+            color: #fff;
+            box-shadow: 0 16px 26px -16px rgba(21, 43, 120, .8);
+        }
+        .btn-success {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 16px 26px -16px rgba(21, 115, 71, .7);
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--ext-muted);
+            min-height: 44px;
+            font-size: .95rem;
+            font-weight: 600;
+        }
+
+        .btn:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+            box-shadow: none;
+            filter: grayscale(.2);
+        }
+
+        .lock-hint {
+            text-align: center;
+            font-size: .82rem;
+            color: var(--ext-muted);
+            margin: 2px 0 0;
+            min-height: 1.1em;
+        }
+
+        .pass-footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: .84rem;
+            color: var(--ext-muted);
+        }
+        .pass-footer a { color: var(--ext-accent); }
+
+        /* מעברים בין השלבים */
+        .stage { display: none; }
+        .stage.active { display: block; animation: fade .3s ease; }
+        @keyframes fade {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* מסך הדגמה אם אין יעד המשך */
+        .demo-done {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .demo-done .ok {
+            width: 72px; height: 72px; margin: 0 auto 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 2.2rem; font-weight: 800;
+            box-shadow: 0 12px 24px rgba(24, 167, 108, .3);
+        }
+        .demo-done h2 { margin: 0 0 8px; font-size: 1.25rem; }
+        .demo-done p { margin: 0; color: var(--ext-muted); }
+
+        @media (max-width: 575.98px) {
+            .exit-pass-body { padding: 24px 18px 20px; }
+            .exit-pass-brand img { width: 140px; }
+            .exit-pass-title { font-size: 1.125rem; }
+            .explain-scroll { max-height: 50vh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="exit-pass-page">
+        <div class="exit-pass-card">
+            <div class="exit-pass-header">
+                <div class="exit-pass-brand">
+                    <!-- נתיב הלוגו של המערכת; במערכת האמיתית החליפו לנתיב המקורי -->
+                    <img src="./מערכת פגישונים_files/logo_pgishonim_full_white.png" alt="פגישונים">
+                </div>
+                <div>
+                    <h1 class="exit-pass-title">אישור יציאה</h1>
+                    <div class="exit-pass-subtitle">לפני הצגת האישור — חשוב לקרוא</div>
+                </div>
+            </div>
+
+            <div class="exit-pass-body">
+
+                <!-- ====== שלב 1: הסבר + גלילה עד הסוף ====== -->
+                <section class="stage active" id="stageExplain" aria-labelledby="explainTitle">
+                    <div class="step-head">
+                        <h2 id="explainTitle">איך האישור נוצר ומה קורה מאחורי הקלעים</h2>
+                        <p>יש לקרוא עד הסוף. כפתור "הבא" ייפתח לאחר גלילה לתחתית.</p>
+                    </div>
+
+                    <div class="read-progress" aria-hidden="true"><span id="progressBar"></span></div>
+
+                    <div class="explain-scroll" id="explainScroll" tabindex="0" role="region" aria-label="הסבר על אופן הפעולה">
+                        <h3><span class="num">1</span> יצירת רשומת האישור</h3>
+                        <p>
+                            ברגע שלוחצים "צור אישור", המערכת פותחת רשומת אישור יציאה דיגיטלית
+                            ומקשרת אותה לתלמיד, לכיתה, לתאריך ולשעה שבחרתם ולסיבת היציאה
+                            (למשל "סיים בית ספר"). הרשומה נשמרת בשרת של המערכת — האישור אינו
+                            "תמונה" שנשמרת אצלכם, אלא נתון חי שהמערכת מציגה לפי בקשה.
+                        </p>
+
+                        <h3><span class="num">2</span> מזהה ייחודי וחותמת זמן</h3>
+                        <p>
+                            לכל אישור נוצר מזהה ייחודי (c_id) וחותמת זמן מדויקת של רגע היצירה.
+                            המזהה הזה הוא מה שמוטמע בקישור ובקוד ה‑QR של האישור. אי אפשר "לנחש"
+                            אישור של תלמיד אחר — כל אישור קשור למזהה שלו בלבד.
+                        </p>
+
+                        <h3><span class="num">3</span> אימות זהות לפני חשיפה</h3>
+                        <p>
+                            לפני שהאישור נחשף, המערכת מבקשת תעודת זהות של התלמיד או ההורה
+                            ומוודאת שהיא תואמת לרשומה. בלי אימות מוצלח האישור לא יוצג. זהו
+                            שלב ההגנה שמונע מאדם לא מורשה לפתוח אישור שאינו שלו.
+                        </p>
+
+                        <h3><span class="num">4</span> הצגה לשומר/ת בשער</h3>
+                        <p>
+                            האישור מיועד להצגה לשומר/ת ביציאה. הוא מציג את שם התלמיד, הכיתה,
+                            הסיבה והשעה, ואת הסטטוס העדכני — "ממתין", "אושר", או "יצא מבית הספר".
+                            השומר/ת מזהה לפי המסך החי, ולכן צילום מסך ישן אינו תקף.
+                        </p>
+
+                        <h3><span class="num">5</span> נעילת האישור ביציאה</h3>
+                        <p>
+                            כשמעדכנים יציאה בפועל, האישור ננעל ונרשמת שעת היציאה האמיתית.
+                            אישור נעול אינו ניתן לשינוי ואינו ניתן לשימוש חוזר — זה נועד למנוע
+                            יציאה כפולה או שימוש מאוחר באותו אישור.
+                        </p>
+
+                        <h3><span class="num">6</span> תיעוד ומעקב</h3>
+                        <p>
+                            כל פעולה נרשמת ביומן המערכת: מי יצר את האישור, מתי בוצע אימות הזהות,
+                            ומתי נוצלה היציאה בפועל. צוות בית הספר יכול לראות את התיעוד הזה
+                            בכל עת, כולל ניסיונות גישה.
+                        </p>
+
+                        <h3><span class="num">7</span> פרטיות ושימוש בנתונים</h3>
+                        <p>
+                            הנתונים משמשים אך ורק לניהול הכניסות והיציאות במוסד החינוכי.
+                            הם אינם נמכרים ואינם מועברים לגורם חיצוני שאינו קשור לתהליך.
+                        </p>
+
+                        <div class="note">
+                            ⚠️ שימו לב: אישור יציאה הוא מסמך רשמי של המוסד החינוכי. זיוף,
+                            התחזות, או הוצאת תלמיד ללא רשות ההורה או בית הספר — עלולים להוות
+                            עבירה ולגרור אחריות משמעתית ומשפטית.
+                        </div>
+
+                        <div class="scroll-sentinel" id="scrollSentinel" aria-hidden="true"></div>
+                    </div>
+
+                    <div class="scroll-hint" id="scrollHint" aria-hidden="true">
+                        <span class="chev">▼</span> גללו עד הסוף כדי להמשיך
+                    </div>
+
+                    <div class="actions">
+                        <button class="btn btn-primary" id="nextBtn" type="button" disabled>הבא</button>
+                        <p class="lock-hint" id="nextLockHint">לקריאה מלאה — גללו עד תחתית ההסבר</p>
+                    </div>
+                </section>
+
+                <!-- ====== שלב 2: התחייבות ====== -->
+                <section class="stage" id="stagePledge" aria-labelledby="pledgeTitle">
+                    <div class="step-head">
+                        <h2 id="pledgeTitle">התחייבות לשימוש תקין</h2>
+                        <p>כדי להציג את האישור, יש לאשר את ההתחייבות הבאה.</p>
+                    </div>
+
+                    <label class="pledge" id="pledgeBox" for="pledgeCheck">
+                        <input type="checkbox" id="pledgeCheck">
+                        <span class="pledge-text">
+                            קראתי והבנתי כיצד המערכת פועלת, ואני <strong>מתחייב/ת</strong> שלא
+                            לעשות באישור שימוש לרעה — לא לזייף, לא להתחזות, ולא להוציא תלמיד
+                            ללא רשות — אלא להשתמש בו אך ורק למטרה שלשמה נוצר.
+                        </span>
+                    </label>
+
+                    <div class="actions">
+                        <button class="btn btn-success" id="continueBtn" type="button" disabled>המשך להצגת האישור</button>
+                        <p class="lock-hint" id="pledgeLockHint">סמנו את ההתחייבות כדי להמשיך</p>
+                        <button class="btn btn-ghost" id="backBtn" type="button">חזרה להסבר</button>
+                    </div>
+                </section>
+
+                <!-- ====== מסך הדגמה (כשאין יעד המשך אמיתי) ====== -->
+                <section class="stage" id="stageDone" aria-labelledby="doneTitle">
+                    <div class="demo-done">
+                        <div class="ok" aria-hidden="true">✓</div>
+                        <h2 id="doneTitle">אושר — האישור מוצג כעת</h2>
+                        <p>במערכת האמיתית, בשלב הזה מתבצע מעבר למסך האישור.</p>
+                    </div>
+                </section>
+
+                <div class="pass-footer">שימוש במערכת מהווה הסכמה <a href="https://pgishonim.com/using-conditions.php">לתקנון</a></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        "use strict";
+
+        // יעד ההמשך (מסך האישור). למשל: ?next=/certifications/approval.php?c_id=69779
+        var NEXT_URL = new URLSearchParams(window.location.search).get("next") || "";
+
+        var scrollBox   = document.getElementById("explainScroll");
+        var progressBar = document.getElementById("progressBar");
+        var scrollHint  = document.getElementById("scrollHint");
+        var nextBtn     = document.getElementById("nextBtn");
+        var nextLock    = document.getElementById("nextLockHint");
+
+        var reachedBottom = false;
+
+        function onScroll() {
+            var max = scrollBox.scrollHeight - scrollBox.clientHeight;
+            var pos = scrollBox.scrollTop;
+            var pct = max <= 0 ? 100 : Math.min(100, Math.round((pos / max) * 100));
+            progressBar.style.width = pct + "%";
+
+            // "עד הסוף" — עם מרווח קטן לסובלנות
+            if (!reachedBottom && pos >= max - 4) {
+                reachedBottom = true;
+                nextBtn.disabled = false;
+                scrollHint.classList.add("hidden");
+                nextLock.textContent = "סיימתם לקרוא — אפשר להמשיך";
+            }
+        }
+
+        scrollBox.addEventListener("scroll", onScroll, { passive: true });
+
+        // אם ההסבר קצר מכדי לגלול (מסך גדול) — נפתח מיד
+        window.addEventListener("load", function () {
+            if (scrollBox.scrollHeight - scrollBox.clientHeight <= 4) {
+                reachedBottom = true;
+                nextBtn.disabled = false;
+                progressBar.style.width = "100%";
+                scrollHint.classList.add("hidden");
+                nextLock.textContent = "אפשר להמשיך";
+            } else {
+                onScroll();
+            }
+        });
+
+        // מעבר בין שלבים
+        function show(id) {
+            ["stageExplain", "stagePledge", "stageDone"].forEach(function (s) {
+                document.getElementById(s).classList.toggle("active", s === id);
+            });
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        nextBtn.addEventListener("click", function () {
+            if (nextBtn.disabled) return;
+            show("stagePledge");
+        });
+
+        document.getElementById("backBtn").addEventListener("click", function () {
+            show("stageExplain");
+        });
+
+        // התחייבות
+        var pledgeCheck  = document.getElementById("pledgeCheck");
+        var pledgeBox    = document.getElementById("pledgeBox");
+        var continueBtn  = document.getElementById("continueBtn");
+        var pledgeLock   = document.getElementById("pledgeLockHint");
+
+        pledgeCheck.addEventListener("change", function () {
+            continueBtn.disabled = !pledgeCheck.checked;
+            pledgeBox.classList.toggle("checked", pledgeCheck.checked);
+            pledgeLock.textContent = pledgeCheck.checked ? "אפשר להמשיך" : "סמנו את ההתחייבות כדי להמשיך";
+        });
+
+        // המשך להצגת האישור
+        continueBtn.addEventListener("click", function () {
+            if (continueBtn.disabled) return;
+            // 🔥 Firebase: רשום אישור (ללא שינוי בלוגיקה)
+            if (typeof window.pgTrackApprovalWithDuration === "function") {
+                window.pgTrackApprovalWithDuration();
+            }
+            if (NEXT_URL) {
+                window.location.href = NEXT_URL;
+            } else {
+                show("stageDone");
+            }
+        });
+    })();
+    </script>
+
+    <!-- 🔥 Firebase Analytics -->
+    <script src="firebase-config.js"></script>
+    <script src="firebase-tracker.js"></script>
+</body>
+</html>
