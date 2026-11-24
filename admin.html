@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>לוח בקרה — מערכת פגישונים 📊</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════
+       Design Tokens
+    ═══════════════════════════════════════════════════════ */
+    :root {
+      --bg:          #0b0f1a;
+      --surface:     #111827;
+      --surface2:    #1a2235;
+      --surface3:    #1f2d44;
+      --border:      rgba(255,255,255,0.07);
+      --text:        #e8edf5;
+      --muted:       #7a8ba8;
+      --accent:      #3b82f6;
+      --accent2:     #8b5cf6;
+      --success:     #10b981;
+      --warning:     #f59e0b;
+      --danger:      #ef4444;
+      --glow-blue:   rgba(59,130,246,0.15);
+      --glow-purple: rgba(139,92,246,0.12);
+      --radius:      14px;
+      --radius-sm:   8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Rubik", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+    /* ── Layout ── */
+    .app {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Top Header ── */
+    .header {
+      background: linear-gradient(135deg, #0f1b35 0%, #162040 50%, #1a1035 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-logo {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 20px rgba(59,130,246,0.4);
+    }
+
+    .header-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, #a5c8ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-subtitle {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.25);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      color: var(--success);
+      font-weight: 500;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    .refresh-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .refresh-btn:hover {
+      background: var(--surface3);
+      border-color: rgba(255,255,255,0.15);
+      transform: translateY(-1px);
+    }
+    .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .reset-btn {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.35);
+      color: #fca5a5;
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .reset-btn:hover { background: rgba(239,68,68,0.22); }
+    .reset-btn:disabled { opacity: 0.55; cursor: wait; }
+
+    .approval-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .metric-toggle {
+      display: inline-flex;
+      padding: 3px;
+      gap: 3px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .metric-toggle button {
+      background: transparent;
+      border: 0;
+      border-radius: 6px;
+      color: var(--muted);
+      padding: 5px 9px;
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .metric-toggle button.active {
+      background: var(--surface3);
+      color: var(--text);
+    }
+
+    /* ── Date Tabs ── */
+    .date-tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 20px 32px 0;
+    }
+
+    .date-tab {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .date-tab:hover { background: var(--surface2); color: var(--text); }
+    .date-tab.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 4px 14px rgba(59,130,246,0.35);
+    }
+
+    /* ── Main Content ── */
+    .main {
+      padding: 24px 32px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Stat Cards Row ── */
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .stat-card:hover::before { opacity: 1; }
+
+    .stat-card.blue::before  { background: var(--glow-blue); }
+    .stat-card.purple::before { background: var(--glow-purple); }
+    .stat-card.green::before { background: rgba(16,185,129,0.08); }
+    .stat-card.orange::before { background: rgba(245,158,11,0.08); }
+
+    .stat-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .stat-icon.blue   { background: rgba(59,130,246,0.15); }
+    .stat-icon.purple { background: rgba(139,92,246,0.15); }
+    .stat-icon.green  { background: rgba(16,185,129,0.15); }
+    .stat-icon.orange { background: rgba(245,158,11,0.15); }
+
+    .stat-info { flex: 1; min-width: 0; }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .stat-value.blue   { color: var(--accent); }
+    .stat-value.purple { color: #a78bfa; }
+    .stat-value.green  { color: var(--success); }
+    .stat-value.orange { color: var(--warning); }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Charts Grid ── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .chart-card.wide { grid-column: 1 / -1; }
+
+    .chart-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .chart-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .chart-subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .chart-badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .chart-wrap {
+      position: relative;
+      flex: 1;
+    }
+
+    /* ── Hour Heatmap ── */
+    .heatmap {
+      display: grid;
+      grid-template-columns: repeat(24, 1fr);
+      gap: 4px;
+    }
+
+    .heat-cell {
+      aspect-ratio: 1;
+      border-radius: 4px;
+      background: var(--surface2);
+      transition: transform 0.15s;
+      position: relative;
+      cursor: default;
+    }
+    .heat-cell:hover { transform: scale(1.3); z-index: 2; }
+
+    .heat-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* ── State messages ── */
+    .state-loading, .state-error, .state-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 48px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      text-align: center;
+    }
+    .state-error { color: var(--danger); }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--surface3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ── Config Banner ── */
+    .config-banner {
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: var(--radius);
+      padding: 18px 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      display: none;
+    }
+    .config-banner.visible { display: flex; }
+
+    .config-banner-icon { font-size: 22px; flex-shrink: 0; }
+    .config-banner-text { font-size: 0.88rem; color: #fbbf24; line-height: 1.6; }
+    .config-banner-text strong { color: #fde68a; }
+
+    /* ── Setup Guide ── */
+    .setup-steps {
+      counter-reset: step;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .setup-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 0.84rem;
+    }
+    .setup-step::before {
+      counter-increment: step;
+      content: counter(step);
+      width: 22px;
+      height: 22px;
+      background: rgba(245,158,11,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #fde68a;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    html.pg-admin-locked .app { visibility: hidden; }
+    #adminAuthOverlay {
+      position: fixed; inset: 0; z-index: 999999; display: flex; align-items: center;
+      justify-content: center; padding: 20px; background: linear-gradient(135deg,#17295f,#3457c9);
+    }
+    #adminAuthOverlay[hidden] { display: none; }
+    .admin-auth-card {
+      width: min(100%, 420px); padding: 26px 22px; border-radius: 18px;
+      background: var(--surface); box-shadow: 0 24px 70px rgba(0,0,0,.32); text-align: center;
+    }
+    .admin-auth-card h1 { margin: 0 0 8px; font-size: 1.3rem; color: var(--text); }
+    .admin-auth-card p { margin: 0 0 16px; color: var(--muted); line-height: 1.5; }
+    .admin-auth-card input, .code-panel input {
+      width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface2); color: var(--text); font-size: 1rem;
+    }
+    .admin-auth-card button, .code-panel button, .logout-btn {
+      border: 0; border-radius: 10px; padding: 11px 16px; color: #fff; background: var(--accent);
+      font-weight: 700; cursor: pointer;
+    }
+    .admin-auth-card button { width: 100%; margin-top: 12px; }
+    .admin-auth-card button:disabled, .code-panel button:disabled { opacity: .6; cursor: wait; }
+    #adminAuthError { min-height: 1.4em; margin-top: 12px; color: var(--danger); font-size: .88rem; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .logout-btn { background: var(--surface3); color: var(--text); margin-inline-start: 8px; }
+    .code-panel {
+      display: grid; grid-template-columns: 1fr minmax(90px,140px) auto; align-items: center;
+      gap: 12px; margin: 0 0 18px; padding: 18px 20px; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--surface);
+    }
+    .code-panel h2 { margin: 0 0 4px; font-size: 1rem; color: var(--text); }
+    .code-panel p { margin: 0; color: var(--muted); font-size: .84rem; }
+    #generatedCodes { grid-column: 1 / -1; width: 100%; min-height: 72px; padding: 10px;
+      border: 1px solid var(--border); border-radius: 10px; background: var(--surface2);
+      color: var(--text); font: 600 .9rem/1.6 monospace; direction: ltr; }
+
+    code {
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: monospace;
+      font-size: 0.82em;
+      color: #93c5fd;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .header { padding: 16px 20px; }
+      .main { padding: 16px 20px 32px; }
+      .date-tabs { padding: 16px 20px 0; }
+      .charts-grid { grid-template-columns: 1fr; }
+      .chart-card.wide { grid-column: 1; }
+      .heatmap { grid-template-columns: repeat(12, 1fr); }
+      .code-panel { grid-template-columns: 1fr 100px; }
+      .code-panel h2, .code-panel p { grid-column: 1 / -1; }
+      .code-panel button { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+
+<body>
+<section id="adminAuthOverlay" aria-labelledby="adminAuthTitle">
+  <form class="admin-auth-card" id="adminAuthForm">
+    <h1 id="adminAuthTitle">כניסת מנהל</h1>
+    <p>יש להזין את סיסמת מנהל המערכת כדי לפתוח את לוח הנתונים ולנהל קודי גישה.</p>
+    <input id="adminPassword" type="password" autocomplete="current-password" required placeholder="סיסמת מנהל">
+    <button id="adminLoginButton" type="submit">כניסה</button>
+    <div id="adminAuthError" role="status" aria-live="polite"></div>
+  </form>
+</section>
+<div class="app">
+
+  <!-- ═══════ Header ═══════ -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-logo">📊</div>
+      <div>
+        <div class="header-title">לוח בקרה — מערכת פגישונים</div>
+        <div class="header-subtitle">אנליטיקה בזמן אמת</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge">
+        <span class="live-dot"></span>
+        Firebase Live
+      </div>
+      <button class="refresh-btn" id="refreshBtn" onclick="loadAll()">
+        <svg id="refreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+          <path d="M8 16H3v5"/>
+        </svg>
+        רענן
+      </button>
+      <button class="reset-btn" id="resetDbBtn" onclick="resetAnalytics()">איפוס מסד נתונים</button>
+      <button class="logout-btn" id="adminLogoutBtn" type="button" onclick="adminLogout()">יציאה</button>
+    </div>
+  </header>
+
+  <!-- ═══════ Date Tabs ═══════ -->
+  <div class="date-tabs" id="dateTabs">
+    <button class="date-tab active" data-date="today" onclick="selectDate('today', this)">היום</button>
+    <button class="date-tab" data-date="yesterday" onclick="selectDate('yesterday', this)">אתמול</button>
+    <button class="date-tab" data-date="7days" onclick="selectDate('7days', this)">7 ימים</button>
+    <button class="date-tab" data-date="30days" onclick="selectDate('30days', this)">30 ימים</button>
+  </div>
+
+  <!-- ═══════ Main Content ═══════ -->
+  <main class="main">
+
+    <!-- Config Warning Banner -->
+    <div class="config-banner" id="configBanner">
+      <div class="config-banner-icon">⚠️</div>
+      <div class="config-banner-text">
+        <strong>שירות Firebase לא זמין.</strong> צריך לפרוס את שירותי Firebase Functions ולהגדיר את סיסמת המנהל ב-Secret Manager. השאירו את כללי מסד הנתונים סגורים.
+      </div>
+    </div>
+
+    <section class="code-panel" aria-labelledby="accessCodesTitle">
+      <div>
+        <h2 id="accessCodesTitle">קודי גישה למשתמשים</h2>
+        <p>כל קוד תקף לשימוש אחד ולמשך 30 יום.</p>
+      </div>
+      <label for="accessCodeCount" class="visually-hidden">מספר קודים ליצירה</label>
+      <input id="accessCodeCount" type="number" min="1" max="50" value="5" inputmode="numeric">
+      <button id="createCodesBtn" type="button" onclick="createAccessCodes()">צור קודים</button>
+      <textarea id="generatedCodes" readonly aria-label="קודי גישה שנוצרו" placeholder="הקודים החדשים יוצגו כאן פעם אחת. שמרו ושלחו אותם למשתמשים."></textarea>
+    </section>
+
+    <!-- Stat Cards -->
+    <div class="stat-cards" id="statCards">
+      <div class="stat-card blue">
+        <div class="stat-icon blue">✅</div>
+        <div class="stat-info">
+          <div class="stat-value blue" id="valApprovals">—</div>
+          <div class="stat-label" id="approvalsMetricLabel">אישורים שנוצרו</div>
+        </div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon purple">👥</div>
+        <div class="stat-info">
+          <div class="stat-value purple" id="valSessions">—</div>
+          <div class="stat-label">סשנים ייחודיים</div>
+        </div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon green">📱</div>
+        <div class="stat-info">
+          <div class="stat-value green" id="valMobile">—</div>
+          <div class="stat-label" title="מזהה אנונימי נספר פעם אחת; נתונים היסטוריים ללא מזהה עשויים לכלול ספירה כפולה">אנשים ייחודיים במובייל</div>
+        </div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-icon orange">👁️</div>
+        <div class="stat-info">
+          <div class="stat-value orange" id="valPageViews">—</div>
+          <div class="stat-label" title="מסך האישור שנוצר לא נספר מכאן והלאה; נתונים ישנים ללא פירוט עמודים לא ניתנים לתיקון מדויק">צפיות בדפים</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="charts-grid">
+
+      <!-- Daily Approvals (bar) -->
+      <div class="chart-card wide">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">📅 אישורים לפי יום</div>
+            <div class="chart-subtitle" id="approvalsMetricSubtitle">מספר אישורים שנוצרו בכל יום</div>
+          </div>
+          <div class="approval-controls">
+            <div class="metric-toggle" role="group" aria-label="תצוגת נתוני אישורים">
+              <button type="button" id="approvalModeTotal" class="active" aria-pressed="true" onclick="setApprovalMode('total')">סה״כ</button>
+              <button type="button" id="approvalModePeople" aria-pressed="false" onclick="setApprovalMode('people')">אנשים שונים</button>
+            </div>
+            <div class="chart-badge" id="approvalsTrend">—</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chartApprovals"></canvas>
+        </div>
+      </div>
+
+      <!-- Device breakdown (doughnut) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">📱 סוג מכשיר</div>
+            <div class="chart-subtitle">Mobile · Tablet · Desktop</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="chartDevice"></canvas>
+        </div>
+      </div>
+
+      <!-- Browser breakdown (bar) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">🌐 דפדפן</div>
+            <div class="chart-subtitle">Chrome · Safari · Firefox · Edge</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="chartBrowser"></canvas>
+        </div>
+      </div>
+
+      <!-- OS breakdown (doughnut) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">💻 מערכת הפעלה</div>
+            <div class="chart-subtitle">Android · iOS · Windows · macOS</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="chartOS"></canvas>
+        </div>
+      </div>
+
+      <!-- Sessions over time (line) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">📈 סשנים לאורך זמן</div>
+            <div class="chart-subtitle">מגמת ביקורים יומית</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="chartSessions"></canvas>
+        </div>
+      </div>
+
+      <!-- Hour heatmap -->
+      <div class="chart-card wide">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">🕐 שעות שיא — מתי משתמשים?</div>
+            <div class="chart-subtitle">צבע כהה = יותר שימוש</div>
+          </div>
+        </div>
+        <div class="heatmap" id="heatmap"></div>
+        <div class="heat-label">
+          <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+        </div>
+      </div>
+
+    </div><!-- /charts-grid -->
+  </main>
+</div><!-- /app -->
+
+<!-- Firebase client SDK used by the private dashboard. -->
+<script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="firebase-client.js"></script>
+
+<script>
+// ───────────────────────────────────────────────────
+//  Dashboard logic
+// ───────────────────────────────────────────────────
+"use strict";
+
+var configOk = false;
+var adminRefreshTimer = null;
+var ADMIN_UID = "ehMJeoaBcVf0fXKSiLBNMYflv923";
+var ADMIN_EMAIL = "pg-admin@funthings-ebe5.firebaseapp.com";
+
+// ── Init ──────────────────────────────────────────
+(function init() {
+  var form = document.getElementById("adminAuthForm");
+  form.addEventListener("submit", adminLogin);
+  if (!window.PG_FIREBASE) {
+    document.getElementById("adminAuthError").textContent = "Firebase לא נטען. בדקו את חיבור האינטרנט ורעננו.";
+    return;
+  }
+  window.PG_FIREBASE.auth.onAuthStateChanged(function (user) {
+    if (!user) {
+      configOk = false;
+      document.getElementById("adminAuthOverlay").hidden = false;
+      return;
+    }
+    if (ADMIN_UID === "__PG_ADMIN_UID__" || user.uid !== ADMIN_UID) {
+        return window.PG_FIREBASE.auth.signOut();
+    }
+    configOk = true;
+    document.getElementById("adminAuthOverlay").hidden = true;
+    document.getElementById("adminAuthError").textContent = "";
+    loadAll();
+    if (!adminRefreshTimer) adminRefreshTimer = setInterval(loadAll, 60000);
+  });
+})();
+
+function adminLogin(event) {
+  event.preventDefault();
+  if (!window.PG_FIREBASE) return;
+  var passwordInput = document.getElementById("adminPassword");
+  var button = document.getElementById("adminLoginButton");
+  var error = document.getElementById("adminAuthError");
+  button.disabled = true;
+  button.textContent = "בודק…";
+  error.textContent = "";
+  window.PG_FIREBASE.auth.signInWithEmailAndPassword(ADMIN_EMAIL, passwordInput.value)
+    .then(function () {
+      passwordInput.value = "";
+    })
+    .catch(function () {
+      error.textContent = "הסיסמה שגויה או ששירות הכניסה עדיין לא הוגדר.";
+    })
+    .then(function () {
+      button.disabled = false;
+      button.textContent = "כניסה";
+    });
+}
+
+function adminLogout() {
+  configOk = false;
+  if (window.PG_FIREBASE) window.PG_FIREBASE.auth.signOut();
+}
+
+// ── Date range helper ─────────────────────────────
+var currentRange = "today";
+var currentApprovalMode = "total";
+
+function setApprovalMode(mode) {
+  currentApprovalMode = mode === "people" ? "people" : "total";
+  var totalButton = document.getElementById("approvalModeTotal");
+  var peopleButton = document.getElementById("approvalModePeople");
+  totalButton.classList.toggle("active", currentApprovalMode === "total");
+  peopleButton.classList.toggle("active", currentApprovalMode === "people");
+  totalButton.setAttribute("aria-pressed", currentApprovalMode === "total");
+  peopleButton.setAttribute("aria-pressed", currentApprovalMode === "people");
+  if (configOk) loadAll();
+}
+
+function selectDate(range, el) {
+  currentRange = range;
+  document.querySelectorAll(".date-tab").forEach(function (b) { b.classList.remove("active"); });
+  el.classList.add("active");
+  if (configOk) loadAll();
+}
+
+function getDateRange() {
+  var dates = [];
+  var now = new Date();
+  var days = currentRange === "yesterday" ? 1
+           : currentRange === "7days"     ? 7
+           : currentRange === "30days"    ? 30
+           : 1;
+
+  if (currentRange === "today") {
+    dates.push(formatDate(now));
+  } else if (currentRange === "yesterday") {
+    var d = new Date(now); d.setDate(d.getDate() - 1);
+    dates.push(formatDate(d));
+  } else {
+    for (var i = days - 1; i >= 0; i--) {
+      var d = new Date(now); d.setDate(d.getDate() - i);
+      dates.push(formatDate(d));
+    }
+  }
+  return dates;
+}
+
+function formatDate(d) {
+  return d.getFullYear() + "-" +
+    String(d.getMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getDate()).padStart(2, "0");
+}
+
+// ── Fetch from Firebase REST ──────────────────────
+function dbGet(path) {
+  return window.PG_FIREBASE.database.ref(path).once("value")
+    .then(function (snapshot) { return snapshot.val(); })
+    .catch(function (error) {
+      console.error("Firebase dashboard read failed:", error);
+      window.alert("לא ניתן לטעון את הנתונים כרגע. בדקו את חיבור Firebase והתחברו שוב.");
+      return null;
+    });
+}
+
+function createAccessCodes() {
+  if (!configOk) return;
+  var count = Number(document.getElementById("accessCodeCount").value);
+  var button = document.getElementById("createCodesBtn");
+  var output = document.getElementById("generatedCodes");
+  if (!Number.isInteger(count) || count < 1 || count > 50) {
+    window.alert("אפשר ליצור בין קוד אחד ל-50 קודים בכל פעם.");
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "יוצר…";
+  output.value = "";
+  function randomCode() {
+    var bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    return Array.prototype.map.call(bytes, function (byte) {
+      return byte.toString(16).padStart(2, "0");
+    }).join("").toUpperCase();
+  }
+  function hashCode(code) {
+    var bytes = new TextEncoder().encode(code);
+    return window.crypto.subtle.digest("SHA-256", bytes).then(function (buffer) {
+      return Array.prototype.map.call(new Uint8Array(buffer), function (byte) {
+        return byte.toString(16).padStart(2, "0");
+      }).join("");
+    });
+  }
+  var codes = Array.from({ length: count }, randomCode);
+  Promise.all(codes.map(function (code) { return hashCode(code); }))
+    .then(function (hashes) {
+      var updates = {};
+      hashes.forEach(function (hash) {
+        updates[hash] = {
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
+        };
+      });
+      return window.PG_FIREBASE.database.ref("access_codes").update(updates);
+    })
+    .then(function () {
+      output.value = codes.map(function (code) {
+        return code.match(/.{1,8}/g).join("-");
+      }).join("\n");
+      if (!output.value) throw new Error("No codes returned.");
+      output.focus();
+      output.select();
+    })
+    .catch(function (error) {
+      console.error("Access code creation failed:", error);
+      window.alert("לא ניתן ליצור קודים כרגע. בדקו את חיבור Firebase ואת הרשאת המנהל.");
+    })
+    .then(function () {
+      button.disabled = false;
+      button.textContent = "צור קודים";
+    });
+}
+
+function resetAnalytics() {
+  if (!configOk) return;
+  var confirmed = window.confirm("האיפוס ימחק לצמיתות את נתוני האנליטיקה ב-Firebase: אישורים, צפיות, סשנים, מכשירים ודפדפנים. אין אפשרות לשחזר אותם. להמשיך?");
+  if (!confirmed) return;
+  var typed = window.prompt("לאישור סופי, הקלד/י: איפוס");
+  if (typed !== "איפוס") return;
+
+  var button = document.getElementById("resetDbBtn");
+  button.disabled = true;
+  button.textContent = "מאפס…";
+  var token = window.crypto && typeof window.crypto.randomUUID === "function"
+    ? window.crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2);
+  window.PG_FIREBASE.database.ref("stats").remove().then(function () {
+    return window.PG_FIREBASE.database.ref("settings/approval_reset_token").set(token);
+  }).then(function () {
+    window.alert("נתוני האנליטיקה אופסו.");
+    loadAll();
+  }).catch(function (error) {
+    console.error("Firebase analytics reset failed:", error);
+    window.alert("האיפוס נכשל. בדוק/י את חיבור Firebase ואת הרשאות מסד הנתונים.");
+  }).then(function () {
+    button.disabled = false;
+    button.textContent = "איפוס מסד נתונים";
+  });
+}
+
+// ── Load All ──────────────────────────────────────
+function loadAll() {
+  if (!configOk) return;
+  var btn = document.getElementById("refreshBtn");
+  btn.classList.add("spinning");
+
+  var dates = getDateRange();
+  var today = formatDate(new Date());
+
+  function countPageViews(node) {
+    if (typeof node === "number") return node;
+    if (!node || typeof node !== "object") return 0;
+    if (typeof node.page === "string") return node.page === "page2.html" ? 0 : 1;
+    return Object.keys(node).reduce(function (sum, key) { return sum + countPageViews(node[key]); }, 0);
+  }
+  function countSessions(node) {
+    if (!node || typeof node !== "object") return 0;
+    if (node.device || node.personId) return 1;
+    return Object.keys(node).reduce(function (sum, key) { return sum + countSessions(node[key]); }, 0);
+  }
+  function bucketCount(value) {
+    return typeof value === "number" ? value : (value && typeof value === "object" ? Object.keys(value).length : 0);
+  }
+
+  Promise.all([
+    dbGet("stats"),
+  ]).then(function (results) {
+    var stats = results[0] || {};
+    btn.classList.remove("spinning");
+
+    // ── Aggregate across selected dates ──
+    var totalApprovals = 0;
+    var uniquePeople = Object.create(null);
+    var mobilePeople = Object.create(null);
+    var totalPageViews = 0;
+    var totalSessions  = 0;
+    var devices   = {};
+    var browsers  = {};
+    var osMap     = {};
+    var hours     = new Array(24).fill(0);
+    var dailyApprovals  = [];
+    var dailyUniquePeople = [];
+    var dailySessions   = [];
+
+    dates.forEach(function (date) {
+      var approvalDevices = safeObj(stats, "approval_devices/" + date);
+      var approvalDeviceCount = Object.keys(approvalDevices).length;
+      var da = approvalDeviceCount > 0
+        ? approvalDeviceCount
+        : safeNum(stats, "approvals/" + date);
+      var peopleForDay = Object.create(null);
+      Object.keys(approvalDevices).forEach(function (approvalId) {
+        var approval = approvalDevices[approvalId] || {};
+        var personKey = approval.personId
+          ? "person:" + approval.personId
+          : "daily:" + date + ":" + approvalId;
+        peopleForDay[personKey] = true;
+        uniquePeople[personKey] = true;
+      });
+      if (approvalDeviceCount === 0 && da > 0) {
+        for (var legacyIndex = 0; legacyIndex < da; legacyIndex++) {
+          var legacyPersonKey = "legacy:" + date + ":" + legacyIndex;
+          peopleForDay[legacyPersonKey] = true;
+          uniquePeople[legacyPersonKey] = true;
+        }
+      }
+      var legacyPageViews = safeNum(stats, "page_views/" + date);
+      var pageViewNode = safeObj(stats, "page_views/" + date);
+      var rawPageViews = legacyPageViews || countPageViews(pageViewNode);
+      var generatedApprovalViews = safeNum(stats, "pages/" + date + "/page2.html");
+      var dv = legacyPageViews > 0
+        ? Math.max(0, rawPageViews - generatedApprovalViews)
+        : rawPageViews;
+      totalApprovals += da;
+      totalPageViews += dv;
+      dailyApprovals.push(da);
+      dailyUniquePeople.push(Object.keys(peopleForDay).length);
+
+      // sessions
+      var sesObj = safeObj(stats, "sessions/" + date);
+      var sesCount = countSessions(sesObj);
+      totalSessions += sesCount;
+      dailySessions.push(sesCount);
+
+      var mobileUsers = safeObj(stats, "mobile_users/" + date);
+      var mobileUserIds = Object.keys(mobileUsers);
+      if (mobileUserIds.length > 0) {
+        mobileUserIds.forEach(function (personId) {
+          mobilePeople["person:" + personId] = true;
+        });
+      } else {
+        var stableMobileIds = Object.create(null);
+        var legacyMobileSessions = Object.create(null);
+        Object.keys(approvalDevices).forEach(function (approvalId) {
+          var approval = approvalDevices[approvalId] || {};
+          if (approval.device === "mobile" && approval.personId) {
+            stableMobileIds["person:" + approval.personId] = true;
+          }
+        });
+        Object.keys(sesObj).forEach(function (sessionId) {
+          var session = sesObj[sessionId] || {};
+          if (session.device !== "mobile") return;
+          if (session.personId) stableMobileIds["person:" + session.personId] = true;
+          else legacyMobileSessions["legacy:" + date + ":" + sessionId] = true;
+        });
+        var fallbackMobileIds = Object.keys(stableMobileIds).length > 0
+          ? stableMobileIds
+          : legacyMobileSessions;
+        Object.keys(fallbackMobileIds).forEach(function (personKey) {
+          mobilePeople[personKey] = true;
+        });
+      }
+
+      // devices
+      var devObj = safeObj(stats, "devices/" + date);
+      Object.keys(devObj).forEach(function (k) {
+        devices[k] = (devices[k] || 0) + bucketCount(devObj[k]);
+      });
+
+      // browsers
+      var brObj = safeObj(stats, "browsers/" + date);
+      Object.keys(brObj).forEach(function (k) {
+        browsers[k] = (browsers[k] || 0) + bucketCount(brObj[k]);
+      });
+
+      // OS
+      var osObj = safeObj(stats, "os/" + date);
+      Object.keys(osObj).forEach(function (k) {
+        osMap[k] = (osMap[k] || 0) + bucketCount(osObj[k]);
+      });
+
+      // hours
+      var hrObj = safeObj(stats, "hours/" + date);
+      Object.keys(hrObj).forEach(function (k) {
+        var h = parseInt(k.split(":")[0], 10);
+        if (!isNaN(h)) hours[h] += bucketCount(hrObj[k]);
+      });
+    });
+
+    // ── Stat cards ──
+    var approvalValues = currentApprovalMode === "people" ? dailyUniquePeople : dailyApprovals;
+    var approvalTotal = currentApprovalMode === "people"
+      ? Object.keys(uniquePeople).length
+      : totalApprovals;
+    setText("valApprovals", approvalTotal);
+    setText("approvalsMetricLabel", currentApprovalMode === "people" ? "אנשים שונים שקיבלו אישור" : "אישורים שנוצרו");
+    setText("approvalsMetricSubtitle", currentApprovalMode === "people"
+      ? "מזהה דפדפן אנונימי; נתונים ישנים נספרים לפי יום"
+      : "מספר אישורים בכל יום; עד אחד לדפדפן ביום");
+    setText("valSessions",  totalSessions);
+    setText("valMobile",    Object.keys(mobilePeople).length);
+    setText("valPageViews", totalPageViews);
+
+    // ── Approval trend badge ──
+    if (dates.length >= 2) {
+      var last   = approvalValues[approvalValues.length - 1];
+      var before = approvalValues[approvalValues.length - 2];
+      var diff   = last - before;
+      document.getElementById("approvalsTrend").textContent =
+        diff >= 0 ? "▲ +" + diff + " לעומת אתמול" : "▼ " + diff + " לעומת אתמול";
+    }
+
+    // ── Charts ──
+    renderBar("chartApprovals", dates.map(shortDate), approvalValues,
+      currentApprovalMode === "people" ? "אנשים שונים" : "אישורים",
+      "rgba(59,130,246,0.7)", "rgba(59,130,246,1)");
+
+    renderDoughnut("chartDevice",
+      mapToLabels(devices, { mobile: "📱 Mobile", tablet: "🖥️ Tablet", desktop: "🖥️ Desktop" }),
+      Object.values(mapToLabels(devices, { mobile: "mobile", tablet: "tablet", desktop: "desktop" }, true)),
+      ["#3b82f6","#8b5cf6","#10b981"]);
+
+    renderBar("chartBrowser",
+      Object.keys(browsers).map(function(k){ return k.replace(/_/g," "); }),
+      Object.values(browsers),
+      "דפדפן", "rgba(139,92,246,0.7)", "rgba(139,92,246,1)");
+
+    renderDoughnut("chartOS",
+      Object.keys(osMap).map(function(k){ return k.replace(/_/g," "); }),
+      Object.values(osMap),
+      ["#f59e0b","#ef4444","#06b6d4","#10b981","#8b5cf6"]);
+
+    renderLine("chartSessions", dates.map(shortDate), dailySessions,
+      "סשנים", "#10b981");
+
+    renderHeatmap(hours);
+
+  }).catch(function (err) {
+    console.error(err);
+    document.getElementById("refreshBtn").classList.remove("spinning");
+  });
+}
+
+// ── Helpers ──────────────────────────────────────
+function safeNum(obj, path) {
+  var parts = path.split("/");
+  var cur = obj;
+  for (var i = 0; i < parts.length; i++) {
+    if (!cur || typeof cur !== "object") return 0;
+    cur = cur[parts[i]];
+  }
+  return typeof cur === "number" ? cur : 0;
+}
+
+function safeObj(obj, path) {
+  var parts = path.split("/");
+  var cur = obj;
+  for (var i = 0; i < parts.length; i++) {
+    if (!cur || typeof cur !== "object") return {};
+    cur = cur[parts[i]];
+  }
+  return (cur && typeof cur === "object") ? cur : {};
+}
+
+function setText(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function shortDate(d) {
+  var parts = d.split("-");
+  return parts[2] + "/" + parts[1];
+}
+
+function mapToLabels(obj, mapping, valuesOnly) {
+  if (valuesOnly) {
+    return Object.keys(mapping).map(function(k){ return obj[k] || 0; });
+  }
+  return Object.keys(mapping).map(function(k){ return mapping[k]; });
+}
+
+// ── Chart renders ─────────────────────────────────
+var charts = {};
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+Chart.defaults.color = "#7a8ba8";
+Chart.defaults.font.family = "Rubik, sans-serif";
+Chart.defaults.borderColor = "rgba(255,255,255,0.05)";
+
+function renderBar(id, labels, data, label, bgColor, bdColor) {
+  destroyChart(id);
+  var ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: data,
+        backgroundColor: bgColor,
+        borderColor: bdColor,
+        borderWidth: 1,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderLine(id, labels, data, label, color) {
+  destroyChart(id);
+  var ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: data,
+        borderColor: color,
+        backgroundColor: color.replace(")", ",0.1)").replace("rgb", "rgba"),
+        borderWidth: 2.5,
+        pointRadius: 4,
+        pointBackgroundColor: color,
+        fill: true,
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderDoughnut(id, labels, data, colors) {
+  destroyChart(id);
+  var ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors.map(function(c){ return c + "cc"; }),
+        borderColor: colors,
+        borderWidth: 1.5,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "60%",
+      plugins: {
+        legend: {
+          position: "right",
+          labels: { font: { size: 11 }, padding: 12, usePointStyle: true }
+        }
+      }
+    }
+  });
+}
+
+// ── Heatmap ──────────────────────────────────────
+function renderHeatmap(hours) {
+  var container = document.getElementById("heatmap");
+  if (!container) return;
+  var max = Math.max.apply(null, hours) || 1;
+  container.innerHTML = "";
+  hours.forEach(function (val, h) {
+    var cell = document.createElement("div");
+    cell.className = "heat-cell";
+    var intensity = val / max;
+    // Map intensity to blue gradient
+    var r = Math.round(13  + intensity * 46);
+    var g = Math.round(28  + intensity * 102);
+    var b = Math.round(45  + intensity * 211);
+    cell.style.background = "rgba(" + r + "," + g + "," + b + "," + (0.3 + intensity * 0.7) + ")";
+    cell.title = h + ":00  —  " + val + " כניסות";
+    container.appendChild(cell);
+  });
+}
+
+// ── Demo Data (when Firebase not configured) ──────
+function showDemo() {
+  setText("valApprovals", "🔧");
+  setText("valSessions",  "🔧");
+  setText("valMobile",    "🔧");
+  setText("valPageViews", "🔧");
+
+  var dates = [];
+  for (var i = 29; i >= 0; i--) {
+    var d = new Date(); d.setDate(d.getDate() - i);
+    dates.push(shortDate(formatDate(d)));
+  }
+  var fakeApprovals = dates.map(function () { return Math.floor(Math.random() * 25); });
+  var fakeSessions  = dates.map(function (_, i) { return fakeApprovals[i] + Math.floor(Math.random() * 15); });
+
+  renderBar("chartApprovals", dates, fakeApprovals,
+    "אישורים (הדגמה)", "rgba(59,130,246,0.4)", "rgba(59,130,246,0.6)");
+
+  renderDoughnut("chartDevice",
+    ["📱 Mobile", "🖥️ Tablet", "🖥️ Desktop"],
+    [65, 10, 25],
+    ["#3b82f6","#8b5cf6","#10b981"]);
+
+  renderBar("chartBrowser",
+    ["Chrome","Safari","Firefox","Edge"],
+    [58, 22, 11, 9],
+    "דפדפן (הדגמה)", "rgba(139,92,246,0.4)", "rgba(139,92,246,0.6)");
+
+  renderDoughnut("chartOS",
+    ["Android","iOS","Windows","macOS"],
+    [45, 30, 18, 7],
+    ["#f59e0b","#ef4444","#06b6d4","#10b981"]);
+
+  renderLine("chartSessions", dates, fakeSessions, "סשנים (הדגמה)", "#10b981");
+
+  var fakeHours = Array.from({ length: 24 }, function (_, h) {
+    // Peak around school hours
+    if (h >= 7 && h <= 14) return Math.floor(Math.random() * 40 + 20);
+    return Math.floor(Math.random() * 10);
+  });
+  renderHeatmap(fakeHours);
+}
+</script>
+
+</body>
+</html>
